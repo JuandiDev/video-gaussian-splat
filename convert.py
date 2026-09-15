@@ -23,6 +23,10 @@ parser.add_argument("--camera", default="OPENCV", type=str)
 parser.add_argument("--colmap_executable", default="", type=str)
 parser.add_argument("--resize", action="store_true")
 parser.add_argument("--magick_executable", default="", type=str)
+parser.add_argument("--matcher", default="exhaustive", choices=["exhaustive", "sequential"],
+                    help="exhaustive for photo sets; sequential for video frames")
+parser.add_argument("--overlap", default=15, type=int,
+                    help="SequentialMatching.overlap when --matcher sequential")
 args = parser.parse_args()
 colmap_command = '"{}"'.format(args.colmap_executable) if len(args.colmap_executable) > 0 else "colmap"
 magick_command = '"{}"'.format(args.magick_executable) if len(args.magick_executable) > 0 else "magick"
@@ -37,16 +41,23 @@ if not args.skip_matching:
         --image_path " + args.source_path + "/input \
         --ImageReader.single_camera 1 \
         --ImageReader.camera_model " + args.camera + " \
-        --SiftExtraction.use_gpu " + str(use_gpu)
+        --FeatureExtraction.use_gpu " + str(use_gpu)
     exit_code = os.system(feat_extracton_cmd)
     if exit_code != 0:
         logging.error(f"Feature extraction failed with code {exit_code}. Exiting.")
         exit(exit_code)
 
     ## Feature matching
-    feat_matching_cmd = colmap_command + " exhaustive_matcher \
-        --database_path " + args.source_path + "/distorted/database.db \
-        --SiftMatching.use_gpu " + str(use_gpu)
+    if args.matcher == "sequential":
+        feat_matching_cmd = colmap_command + " sequential_matcher \
+            --database_path " + args.source_path + "/distorted/database.db \
+            --FeatureMatching.use_gpu " + str(use_gpu) + " \
+            --SequentialMatching.overlap " + str(args.overlap) + " \
+            --SequentialMatching.quadratic_overlap 1"
+    else:
+        feat_matching_cmd = colmap_command + " exhaustive_matcher \
+            --database_path " + args.source_path + "/distorted/database.db \
+            --FeatureMatching.use_gpu " + str(use_gpu)
     exit_code = os.system(feat_matching_cmd)
     if exit_code != 0:
         logging.error(f"Feature matching failed with code {exit_code}. Exiting.")
@@ -67,9 +78,23 @@ if not args.skip_matching:
 
 ### Image undistortion
 ## We need to undistort our images into ideal pinhole intrinsics.
+distorted_sparse = os.path.join(args.source_path, "distorted", "sparse")
+sparse_model = os.path.join(distorted_sparse, "0")
+if not os.path.isdir(sparse_model):
+    model_dirs = sorted(
+        os.path.join(distorted_sparse, name)
+        for name in os.listdir(distorted_sparse)
+        if os.path.isdir(os.path.join(distorted_sparse, name))
+    )
+    if not model_dirs:
+        logging.error("COLMAP mapper produced no sparse model. Exiting.")
+        exit(1)
+    sparse_model = model_dirs[0]
+    logging.warning("Using COLMAP model at %s", sparse_model)
+
 img_undist_cmd = (colmap_command + " image_undistorter \
     --image_path " + args.source_path + "/input \
-    --input_path " + args.source_path + "/distorted/sparse/0 \
+    --input_path " + sparse_model + " \
     --output_path " + args.source_path + "\
     --output_type COLMAP")
 exit_code = os.system(img_undist_cmd)
