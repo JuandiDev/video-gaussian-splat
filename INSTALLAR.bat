@@ -6,10 +6,12 @@ echo ============================================
 echo  Instalacion (una sola vez) en esta PC
 echo ============================================
 echo.
-echo Esto puede tardar 30-90 minutos e instala:
-echo  - Git, Miniconda, Visual Studio C++, CUDA 11.8
-echo  - FFmpeg, COLMAP
-echo  - Entorno conda gaussian_splatting
+echo PC NUEVA: este .bat (Git, Conda, VS C++, CUDA, FFmpeg, COLMAP, env).
+echo.
+echo YA INSTALASTE COSAS (como tu amigo): usa COMO_EL_VIDEO.bat
+echo  - No desinstala Git / Conda / VS / FFmpeg
+echo  - Instala CUDA Toolkit si falta nvcc
+echo  - Borra SOLO el env conda y lo crea DESPUES de CUDA
 echo.
 echo El VIDEO no se instala. Se elige despues en EMPEZAR.bat
 echo Notebook enchufada. Cerra otros programas.

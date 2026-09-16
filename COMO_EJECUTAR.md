@@ -17,6 +17,26 @@ Lenovo 82B1 · Windows 11 · Ryzen 7 4800H · 16 GB RAM · **NVIDIA GeForce RTX 
 
 No uses la iGPU Radeon para Python. Si Windows pregunta, elegí **High performance / NVIDIA**.
 
+## Orden del video de Stephens (el que te funcionó)
+
+Tutorial: [Getting Started With 3D Gaussian Splatting for Windows](https://www.youtube.com/watch?v=UXtuigy_wYc)
+
+El orden **no es opcional**:
+
+1. Git  
+2. Anaconda / Miniconda  
+3. **Visual Studio C++** (Build Tools, no VS Code)  
+4. **CUDA Toolkit 11.8** (`nvcc`) — **después** del paso 3  
+5. Recién ahí crear el entorno conda (ahí se **compila** el rasterizer)
+
+Tu amigo **ya tiene** 1–3. **No desinstalar** Git, Miniconda, Visual Studio, FFmpeg, COLMAP ni VS Code.
+
+**Sí hay que tirar** el env `gaussian_splatting` (se armó **sin** `nvcc`) y el CUDA Toolkit que falta.
+
+Doble clic **`COMO_EL_VIDEO.bat`**: instala CUDA 11.8 si hace falta, borra ese env y lo crea **después** de `nvcc`. Si CUDA pidió reinicio, reiniciá y **volvé a correr el mismo `.bat`**.
+
+Después el día a día sigue siendo **`EMPEZAR.bat`**.
+
 ## Actualizar el código (tu amigo)
 
 En Git Bash, **adentro** de la carpeta del repo:
@@ -51,9 +71,10 @@ Carpeta típica del resultado:
 
 ## Qué hace falta una vez
 
-Doble clic **`INSTALLAR.bat`** (con la notebook enchufada). Instala Git, Miniconda, Visual Studio C++, CUDA 11.8, FFmpeg, COLMAP y el entorno conda. Puede pedir permisos de Windows y tardar bastante.
+- **PC nueva:** `INSTALLAR.bat`
+- **Ya tiene Git/Conda/VS (tu amigo):** `COMO_EL_VIDEO.bat` — CUDA 11.8 si falta, borra el env viejo, lo crea **después** de `nvcc`.
 
-Si VS/CUDA se acaban de instalar y el env falla, **reiniciá Windows** y volvé a correr `INSTALLAR.bat`.
+Si CUDA acaba de instalarse, **reiniciá Windows** y volvé a correr `COMO_EL_VIDEO.bat`.
 
 Disco: ~15 GB libres.
 
