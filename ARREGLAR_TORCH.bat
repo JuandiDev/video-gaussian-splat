@@ -4,28 +4,18 @@ cd /d "%~dp0"
 
 echo ============================================
 echo  Arreglar PyTorch (fbgemm.dll / WinError 182)
-echo  NO reinstala COLMAP ni el entorno completo.
+echo  NO borra COLMAP ni hay que hacer INSTALLAR.bat
 echo ============================================
 echo.
 
-echo --- Visual C++ Redistributable ---
-winget install --id Microsoft.VCRedist.2015+.x64 -e --accept-package-agreements --accept-source-agreements
-
-set "CONDA_EXE="
-if exist "%USERPROFILE%\miniconda3\Scripts\conda.exe" set "CONDA_EXE=%USERPROFILE%\miniconda3\Scripts\conda.exe"
-if exist "%LOCALAPPDATA%\miniconda3\Scripts\conda.exe" set "CONDA_EXE=%LOCALAPPDATA%\miniconda3\Scripts\conda.exe"
-if exist "%USERPROFILE%\anaconda3\Scripts\conda.exe" set "CONDA_EXE=%USERPROFILE%\anaconda3\Scripts\conda.exe"
-
-if "%CONDA_EXE%"=="" (
-    echo No encuentro conda. Igual instala el Redistributable de arriba.
-    goto END
+powershell -ExecutionPolicy Bypass -File "%~dp0scripts\fix_torch.ps1"
+if errorlevel 1 (
+    echo Fallo el arreglo. Copiá el texto rojo y mandaselo.
+    pause
+    exit /b 1
 )
 
-echo --- OpenMP en el env gaussian_splatting ---
-"%CONDA_EXE%" install -n gaussian_splatting -c conda-forge llvm-openmp vs2015_runtime -y
-
-:END
 echo.
-echo Listo. REINICIA Windows y despues EMPEZAR.bat
-echo Si COLMAP ya habia terminado, no lo vuelve a hacer.
+echo Si el test de torch salio OK: EMPEZAR.bat
+echo Si fallo: REINICIA Windows y corre ARREGLAR_TORCH.bat otra vez.
 pause
