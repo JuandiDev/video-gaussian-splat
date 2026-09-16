@@ -120,7 +120,7 @@ No subas a `--iterations 30000` en esta 2060 de 6 GB: suele quedarse sin VRAM.
 - **CUDA / `cl.exe`:** VS C++ **antes** que CUDA Toolkit; recrear el env.
 - **Out of memory:** ya está el perfil 6 GB; cerrá el resto de programas.
 - **Python usa la Radeon:** Configuración de Windows → Sistema → Pantalla → Gráficos → `python.exe` → **Alto rendimiento (NVIDIA)**.
-- **`no kernel image` en COLMAP:** el script reintenta en CPU solo.
+- **`fbgemm.dll` / WinError 182:** PyTorch no carga. Doble clic **`ARREGLAR_TORCH.bat`**, reiniciá Windows, otra vez **EMPEZAR.bat**. No hace falta `INSTALLAR.bat`. Si COLMAP ya había terminado, se reusa.
 
 ## Flujo interno
 

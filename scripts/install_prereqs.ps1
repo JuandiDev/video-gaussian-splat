@@ -79,4 +79,7 @@ if (Get-Command nvcc -ErrorAction SilentlyContinue) {
     }
 }
 
+Write-Host "`n=== Visual C++ Redistributable ==="
+Install-WingetId "Microsoft.VCRedist.2015+.x64"
+
 Write-Host "`nPrerequisites step finished. If VS or CUDA were just installed, reboot before training if setup_env fails."

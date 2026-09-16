@@ -12,6 +12,8 @@ dependencies:
   - pytorch=2.1.2
   - torchvision=0.16.2
   - pytorch-cuda=11.8
+  - llvm-openmp
+  - vs2015_runtime
   - pip:
       - opencv-python
       - joblib

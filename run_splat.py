@@ -210,6 +210,7 @@ def main():
     parser.add_argument("--cpu-sfm", action="store_true", help="Force COLMAP SIFT on CPU")
     parser.add_argument("--skip-extract", action="store_true", help="Reuse existing work/input frames")
     parser.add_argument("--skip-sfm", action="store_true", help="Reuse existing COLMAP sparse/0")
+    parser.add_argument("--force-sfm", action="store_true", help="Rebuild COLMAP even if sparse/0 exists")
     parser.add_argument("--skip-train", action="store_true", help="Stop after COLMAP")
     args = parser.parse_args()
 
@@ -238,14 +239,18 @@ def main():
     else:
         print("nvidia-smi: not found (training will fail without an NVIDIA GPU)")
 
+    if sparse_ready(work) and not args.force_sfm:
+        print("COLMAP already done at {}; skipping SfM.".format(work), flush=True)
+        args.skip_sfm = True
+        if count_images(input_dir) >= 15:
+            args.skip_extract = True
+
     if not args.skip_extract:
         extract_frames(ffmpeg, video, input_dir, args.fps)
-    elif count_images(input_dir) < 15:
+    elif count_images(input_dir) < 15 and not args.skip_sfm:
         raise SystemExit("Not enough frames in {}".format(input_dir))
 
     if not args.skip_sfm:
-        if sparse_ready(work):
-            print("Existing COLMAP model found; deleting it to rebuild.", flush=True)
         wipe_sfm(work)
         try_gpu = not args.cpu_sfm
         try:
