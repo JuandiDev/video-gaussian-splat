@@ -11,7 +11,7 @@ Lenovo 82B1 · Windows 11 · Ryzen 7 4800H · 16 GB RAM · **NVIDIA GeForce RTX 
 | | |
 |---|---|
 | ¿Puede entrenar 3DGS? | **Sí.** Turing, Compute 7.5 (el paper pide 7.0+) |
-| VRAM dedicada | ~6 GB → perfil automático **2000 iteraciones**, fotos en CPU |
+| VRAM dedicada | ~6 GB → perfil automático **7000 iteraciones**, fotos en CPU |
 | GPU híbrida | CUDA usa la RTX. Cerrar Chrome/juegos. **Notebook enchufada.** |
 | RAM | 16 GB: no dejar el mapper + entrenamiento con mil pestañas abiertas |
 
@@ -34,7 +34,7 @@ video.mp4  →  (esta app)  →  point_cloud.ply  →  SuperSplat en el navegado
 
 Carpeta típica del resultado:
 
-`C:\...\NombreDelVideo_splat\output\point_cloud\iteration_2000\point_cloud.ply`
+`C:\...\NombreDelVideo_splat\output\point_cloud\iteration_7000\point_cloud.ply`
 
 ## Qué hace falta una vez
 
@@ -93,10 +93,10 @@ En esta PC el script va a:
 
 1. Extraer 1 foto por segundo  
 2. Correr COLMAP  
-3. Entrenar **2000 iters** (perfil 6 GB)  
+3. Entrenar **7000 iters** (perfil 6 GB)  
 4. Escribir el `.ply` en:
 
-`<carpeta_del_video>\<nombre_del_video>_splat\output\point_cloud\iteration_2000\point_cloud.ply`
+`<carpeta_del_video>\<nombre_del_video>_splat\output\point_cloud\iteration_7000\point_cloud.ply`
 
 Abrilo en [SuperSplat](https://superspl.at/editor).
 
@@ -108,7 +108,7 @@ Tiempo esperado (orientativo, notebook enchufada): COLMAP 5–20 min + train 20�
 |---|---|
 | `--fps 2` | Más frames (mejor overlap, más lento) |
 | `--cpu-sfm` | COLMAP solo en CPU |
-| `--iterations 2000` | Ya es el default en esta GPU |
+| `--iterations 7000` | Ya es el default en esta GPU |
 | `--work D:\escena` | Carpeta de trabajo |
 | `--skip-train` | Solo COLMAP, no entrena |
 
