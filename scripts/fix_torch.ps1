@@ -1,16 +1,11 @@
-# Fix WinError 182 loading torch/lib/fbgemm.dll (missing OpenMP / VC runtime)
-$ErrorActionPreference = "Stop"
+# Fix WinError 182 on import torch (fbgemm.dll). Do not copy mismatched OpenMP DLLs.
+$ErrorActionPreference = "Continue"
 
-function Get-CondaExe {
-    if (Get-Command conda -ErrorAction SilentlyContinue) {
-        return (Get-Command conda).Source
-    }
+function Get-EnvPython {
     $guesses = @(
-        "$env:USERPROFILE\miniconda3\Scripts\conda.exe",
-        "$env:USERPROFILE\Miniconda3\Scripts\conda.exe",
-        "$env:LOCALAPPDATA\miniconda3\Scripts\conda.exe",
-        "$env:USERPROFILE\anaconda3\Scripts\conda.exe",
-        "$env:LOCALAPPDATA\anaconda3\Scripts\conda.exe"
+        "$env:USERPROFILE\miniconda3\envs\gaussian_splatting\python.exe",
+        "$env:LOCALAPPDATA\miniconda3\envs\gaussian_splatting\python.exe",
+        "$env:USERPROFILE\Miniconda3\envs\gaussian_splatting\python.exe"
     )
     foreach ($g in $guesses) {
         if (Test-Path $g) { return $g }
@@ -18,48 +13,67 @@ function Get-CondaExe {
     return $null
 }
 
-Write-Host "=== Visual C++ Redistributable ==="
+Write-Host "=== 1) Visual C++ Redistributable (x64 y x86) ==="
 winget install --id Microsoft.VCRedist.2015+.x64 -e --accept-package-agreements --accept-source-agreements
+winget install --id Microsoft.VCRedist.2015+.x86 -e --accept-package-agreements --accept-source-agreements
 
-$conda = Get-CondaExe
-if (-not $conda) {
-    throw "No encuentro conda. Instala Miniconda y corre INSTALLAR.bat una vez."
+$py = Get-EnvPython
+if (-not $py) {
+    throw "No encuentro gaussian_splatting\python.exe"
 }
-
-Write-Host "Using conda: $conda"
-Write-Host "=== OpenMP + runtime ==="
-& $conda install -n gaussian_splatting -c conda-forge llvm-openmp intel-openmp vs2015_runtime -y
-
-$envRoot = Join-Path $env:USERPROFILE "miniconda3\envs\gaussian_splatting"
-if (-not (Test-Path $envRoot)) {
-    $envRoot = Join-Path $env:LOCALAPPDATA "miniconda3\envs\gaussian_splatting"
-}
+$envRoot = Split-Path $py
 $torchLib = Join-Path $envRoot "Lib\site-packages\torch\lib"
-$binDir = Join-Path $envRoot "Library\bin"
-Write-Host "torch lib: $torchLib"
-Write-Host "conda bin: $binDir"
+Write-Host "Python: $py"
 
-if (Test-Path $binDir -and Test-Path $torchLib) {
-    $omps = Get-ChildItem $binDir -Filter "*omp*.dll" -ErrorAction SilentlyContinue
-    foreach ($dll in $omps) {
-        Write-Host "Copy $($dll.Name) -> torch/lib"
-        Copy-Item $dll.FullName $torchLib -Force
-    }
-    $target = Join-Path $torchLib "libomp140.x86_64.dll"
-    if (-not (Test-Path $target) -and $omps) {
-        Write-Host "Also copy as libomp140.x86_64.dll"
-        Copy-Item $omps[0].FullName $target -Force
-    }
+if (Test-Path $torchLib) {
+    Write-Host "=== 2) Sacar copias viejas de OpenMP en torch\lib ==="
+    Remove-Item (Join-Path $torchLib "libomp140.x86_64.dll") -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "=== Reinstall PyTorch 2.1.2 + CUDA 11.8 ==="
-& $conda install -n gaussian_splatting pytorch=2.1.2 torchvision=0.16.2 pytorch-cuda=11.8 -c pytorch -c nvidia --force-reinstall -y
-
-$py = Join-Path $envRoot "python.exe"
-Write-Host "=== Test import torch ==="
-& $py -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())"
-if ($LASTEXITCODE -ne 0) {
-    throw "import torch sigue fallando. Reinicia Windows y volve a correr ARREGLAR_TORCH.bat"
+Write-Host "=== 3) Desinstalar PyTorch de conda/pip ==="
+& $py -m pip uninstall -y torch torchvision torchaudio
+$conda = Join-Path (Split-Path (Split-Path $envRoot)) "Scripts\conda.exe"
+if (-not (Test-Path $conda)) {
+    $conda = "$env:USERPROFILE\miniconda3\Scripts\conda.exe"
+}
+if (Test-Path $conda) {
+    & $conda remove -n gaussian_splatting pytorch torchvision pytorch-cuda cpuonly -y --force 2>$null
 }
 
-Write-Host "PyTorch OK."
+Write-Host "=== 4) Instalar PyTorch oficial CUDA 11.8 (pip) ==="
+& $py -m pip install --upgrade pip
+$ok = $false
+$specs = @(
+    @("torch==2.1.2+cu118", "torchvision==0.16.2+cu118"),
+    @("torch==2.2.2+cu118", "torchvision==0.17.2+cu118"),
+    @("torch==2.3.1+cu118", "torchvision==0.18.1+cu118")
+)
+foreach ($spec in $specs) {
+    Write-Host "Probando $($spec[0]) ..."
+    & $py -m pip uninstall -y torch torchvision torchaudio
+    & $py -m pip install $spec[0] $spec[1] --index-url https://download.pytorch.org/whl/cu118
+    & $py -c "import torch; print('OK', torch.__version__, 'cuda', torch.cuda.is_available())"
+    if ($LASTEXITCODE -eq 0) {
+        $ok = $true
+        Write-Host "TORCH OK con $($spec[0])"
+        break
+    }
+    Write-Host "Esa version fallo, pruebo otra..."
+}
+
+if (-not $ok) {
+    throw "Ninguna version de PyTorch cargo. REINICIA Windows y corre ARREGLAR_TORCH.bat otra vez."
+}
+
+$repo = Split-Path -Parent $PSScriptRoot
+if (Test-Path (Join-Path $repo "submodules\diff-gaussian-rasterization")) {
+    Write-Host "=== 5) Recompilar extensiones CUDA (5-15 min) ==="
+    $env:DISTUTILS_USE_SDK = "1"
+    Push-Location $repo
+    & $py -m pip install ./submodules/diff-gaussian-rasterization --no-build-isolation --force-reinstall
+    & $py -m pip install ./submodules/simple-knn --no-build-isolation --force-reinstall
+    Pop-Location
+}
+
+Write-Host ""
+Write-Host "LISTO: import torch funciona. Ahora EMPEZAR.bat"
