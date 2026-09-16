@@ -16,6 +16,6 @@ if errorlevel 1 (
 )
 
 echo.
-echo Si el texto dice TORCH OK / LISTO: EMPEZAR.bat
-echo Si fallo: REINICIA Windows y corre ARREGLAR_TORCH.bat otra vez.
+echo Tiene que decir LISTO con numpy y cuda.
+echo Despues: EMPEZAR.bat
 pause
