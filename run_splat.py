@@ -141,9 +141,9 @@ def train_flags_for_vram(vram_mb, gpu_name, iterations_override):
     extra = []
     laptop_6gb = vram_mb < 7000 or "2060" in gpu_name
     if laptop_6gb:
-        iterations = 7000
+        iterations = 2000
         extra = [
-            "--densify_until_iter", "5000",
+            "--densify_until_iter", "1500",
             "--densify_grad_threshold", "0.0006",
             "--data_device", "cpu",
         ]
@@ -168,7 +168,7 @@ def train_flags_for_vram(vram_mb, gpu_name, iterations_override):
         "--disable_viewer",
         "--test_iterations", "-1",
         "--iterations", str(iterations),
-        "--save_iterations", str(min(7000, iterations)), str(iterations),
+        "--save_iterations", str(iterations),
     ] + extra
     return flags, iterations
 
