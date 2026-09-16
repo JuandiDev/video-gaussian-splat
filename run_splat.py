@@ -10,6 +10,19 @@ import subprocess
 import sys
 
 
+def safe_stem(name):
+    cleaned = []
+    for ch in name:
+        cleaned.append(ch if (ch.isalnum() or ch in "-_.") else "_")
+    out = "".join(cleaned).strip("._")
+    return out or "scene"
+
+
+def work_dir_for_video(video):
+    stem = safe_stem(os.path.splitext(os.path.basename(video))[0])
+    return os.path.join(os.path.dirname(os.path.abspath(video)), stem + "_splat")
+
+
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -207,8 +220,7 @@ def main():
     if args.work:
         work = os.path.abspath(args.work)
     else:
-        stem = os.path.splitext(os.path.basename(video))[0]
-        work = os.path.join(os.path.dirname(video), stem + "_splat")
+        work = work_dir_for_video(video)
 
     input_dir = os.path.join(work, "input")
     model_path = os.path.join(work, "output")

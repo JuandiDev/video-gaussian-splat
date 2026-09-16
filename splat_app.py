@@ -10,6 +10,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
+from run_splat import work_dir_for_video
+
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 RUN_SPLAT = os.path.join(REPO_ROOT, "run_splat.py")
 SUPERSPLAT = "https://superspl.at/editor"
@@ -127,8 +129,7 @@ class SplatApp(tk.Tk):
             self.status.set("Terminó, pero no encontré el .ply. Revisá el registro.")
 
     def _find_ply(self, video):
-        stem = os.path.splitext(os.path.basename(video))[0]
-        work = os.path.join(os.path.dirname(os.path.abspath(video)), stem + "_splat")
+        work = work_dir_for_video(video)
         cloud = os.path.join(work, "output", "point_cloud")
         found = []
         if os.path.isdir(cloud):

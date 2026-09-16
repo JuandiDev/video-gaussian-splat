@@ -28,20 +28,33 @@ parser.add_argument("--matcher", default="exhaustive", choices=["exhaustive", "s
 parser.add_argument("--overlap", default=15, type=int,
                     help="SequentialMatching.overlap when --matcher sequential")
 args = parser.parse_args()
-colmap_command = '"{}"'.format(args.colmap_executable) if len(args.colmap_executable) > 0 else "colmap"
-magick_command = '"{}"'.format(args.magick_executable) if len(args.magick_executable) > 0 else "magick"
+args.source_path = os.path.abspath(args.source_path)
+
+
+def q(path):
+    return '"{}"'.format(os.path.normpath(path))
+
+
+colmap_command = q(args.colmap_executable) if len(args.colmap_executable) > 0 else "colmap"
+magick_command = q(args.magick_executable) if len(args.magick_executable) > 0 else "magick"
 use_gpu = 1 if not args.no_gpu else 0
+src = args.source_path
+input_dir = os.path.join(src, "input")
+db_path = os.path.join(src, "distorted", "database.db")
+distorted_sparse = os.path.join(src, "distorted", "sparse")
 
 if not args.skip_matching:
-    os.makedirs(args.source_path + "/distorted/sparse", exist_ok=True)
+    os.makedirs(distorted_sparse, exist_ok=True)
 
     ## Feature extraction
-    feat_extracton_cmd = colmap_command + " feature_extractor "\
-        "--database_path " + args.source_path + "/distorted/database.db \
-        --image_path " + args.source_path + "/input \
-        --ImageReader.single_camera 1 \
-        --ImageReader.camera_model " + args.camera + " \
-        --FeatureExtraction.use_gpu " + str(use_gpu)
+    feat_extracton_cmd = (
+        colmap_command + " feature_extractor"
+        " --database_path " + q(db_path) +
+        " --image_path " + q(input_dir) +
+        " --ImageReader.single_camera 1"
+        " --ImageReader.camera_model " + args.camera +
+        " --FeatureExtraction.use_gpu " + str(use_gpu)
+    )
     exit_code = os.system(feat_extracton_cmd)
     if exit_code != 0:
         logging.error(f"Feature extraction failed with code {exit_code}. Exiting.")
@@ -49,36 +62,38 @@ if not args.skip_matching:
 
     ## Feature matching
     if args.matcher == "sequential":
-        feat_matching_cmd = colmap_command + " sequential_matcher \
-            --database_path " + args.source_path + "/distorted/database.db \
-            --FeatureMatching.use_gpu " + str(use_gpu) + " \
-            --SequentialMatching.overlap " + str(args.overlap) + " \
-            --SequentialMatching.quadratic_overlap 1"
+        feat_matching_cmd = (
+            colmap_command + " sequential_matcher"
+            " --database_path " + q(db_path) +
+            " --FeatureMatching.use_gpu " + str(use_gpu) +
+            " --SequentialMatching.overlap " + str(args.overlap) +
+            " --SequentialMatching.quadratic_overlap 1"
+        )
     else:
-        feat_matching_cmd = colmap_command + " exhaustive_matcher \
-            --database_path " + args.source_path + "/distorted/database.db \
-            --FeatureMatching.use_gpu " + str(use_gpu)
+        feat_matching_cmd = (
+            colmap_command + " exhaustive_matcher"
+            " --database_path " + q(db_path) +
+            " --FeatureMatching.use_gpu " + str(use_gpu)
+        )
     exit_code = os.system(feat_matching_cmd)
     if exit_code != 0:
         logging.error(f"Feature matching failed with code {exit_code}. Exiting.")
         exit(exit_code)
 
     ### Bundle adjustment
-    # The default Mapper tolerance is unnecessarily large,
-    # decreasing it speeds up bundle adjustment steps.
-    mapper_cmd = (colmap_command + " mapper \
-        --database_path " + args.source_path + "/distorted/database.db \
-        --image_path "  + args.source_path + "/input \
-        --output_path "  + args.source_path + "/distorted/sparse \
-        --Mapper.ba_global_function_tolerance=0.000001")
+    mapper_cmd = (
+        colmap_command + " mapper"
+        " --database_path " + q(db_path) +
+        " --image_path " + q(input_dir) +
+        " --output_path " + q(distorted_sparse) +
+        " --Mapper.ba_global_function_tolerance=0.000001"
+    )
     exit_code = os.system(mapper_cmd)
     if exit_code != 0:
         logging.error(f"Mapper failed with code {exit_code}. Exiting.")
         exit(exit_code)
 
 ### Image undistortion
-## We need to undistort our images into ideal pinhole intrinsics.
-distorted_sparse = os.path.join(args.source_path, "distorted", "sparse")
 sparse_model = os.path.join(distorted_sparse, "0")
 if not os.path.isdir(sparse_model):
     model_dirs = sorted(
@@ -92,11 +107,13 @@ if not os.path.isdir(sparse_model):
     sparse_model = model_dirs[0]
     logging.warning("Using COLMAP model at %s", sparse_model)
 
-img_undist_cmd = (colmap_command + " image_undistorter \
-    --image_path " + args.source_path + "/input \
-    --input_path " + sparse_model + " \
-    --output_path " + args.source_path + "\
-    --output_type COLMAP")
+img_undist_cmd = (
+    colmap_command + " image_undistorter"
+    " --image_path " + q(input_dir) +
+    " --input_path " + q(sparse_model) +
+    " --output_path " + q(src) +
+    " --output_type COLMAP"
+)
 exit_code = os.system(img_undist_cmd)
 if exit_code != 0:
     logging.error(f"Mapper failed with code {exit_code}. Exiting.")
@@ -127,21 +144,21 @@ if(args.resize):
 
         destination_file = os.path.join(args.source_path, "images_2", file)
         shutil.copy2(source_file, destination_file)
-        exit_code = os.system(magick_command + " mogrify -resize 50% " + destination_file)
+        exit_code = os.system(magick_command + " mogrify -resize 50% " + q(destination_file))
         if exit_code != 0:
             logging.error(f"50% resize failed with code {exit_code}. Exiting.")
             exit(exit_code)
 
         destination_file = os.path.join(args.source_path, "images_4", file)
         shutil.copy2(source_file, destination_file)
-        exit_code = os.system(magick_command + " mogrify -resize 25% " + destination_file)
+        exit_code = os.system(magick_command + " mogrify -resize 25% " + q(destination_file))
         if exit_code != 0:
             logging.error(f"25% resize failed with code {exit_code}. Exiting.")
             exit(exit_code)
 
         destination_file = os.path.join(args.source_path, "images_8", file)
         shutil.copy2(source_file, destination_file)
-        exit_code = os.system(magick_command + " mogrify -resize 12.5% " + destination_file)
+        exit_code = os.system(magick_command + " mogrify -resize 12.5% " + q(destination_file))
         if exit_code != 0:
             logging.error(f"12.5% resize failed with code {exit_code}. Exiting.")
             exit(exit_code)
