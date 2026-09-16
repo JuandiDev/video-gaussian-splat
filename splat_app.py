@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Ventana simple: elegir un video y generar el Gaussian Splat."""
+"""Ventana: elegir video, ver preview del train y cancelar si va mal."""
 
 import os
 import sys
@@ -21,21 +21,28 @@ class SplatApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Video → Gaussian Splat")
-        self.geometry("760x560")
-        self.minsize(640, 480)
+        self.geometry("920x720")
+        self.minsize(760, 600)
         self.video_path = tk.StringVar()
         self.status = tk.StringVar(value="Elegí un video y pulsá Generar splat.")
         self.output_dir = None
         self.proc = None
+        self.cancelled = False
+        self.preview_mtime = 0
+        self.preview_photo = None
         self._build()
+        self.after(1500, self._poll_preview)
 
     def _build(self):
         pad = {"padx": 12, "pady": 6}
         frm = ttk.Frame(self)
         frm.pack(fill="both", expand=True, **pad)
 
-        ttk.Label(frm, text="No hace falta Cursor. Elegí el video y esperá el .ply.",
-                  font=("Segoe UI", 11)).pack(anchor="w")
+        ttk.Label(
+            frm,
+            text="Elegí el video. Mientras entrena vas a ver una foto de cómo va. Si se ve mal, Cancelar.",
+            font=("Segoe UI", 11),
+        ).pack(anchor="w")
 
         row = ttk.Frame(frm)
         row.pack(fill="x", pady=(10, 4))
@@ -46,20 +53,64 @@ class SplatApp(tk.Tk):
         btns.pack(fill="x", pady=8)
         self.go_btn = ttk.Button(btns, text="Generar splat", command=self.start)
         self.go_btn.pack(side="left")
-        ttk.Button(btns, text="Abrir carpeta del resultado", command=self.open_output).pack(side="left", padx=8)
-        ttk.Button(btns, text="Ver el splat (SuperSplat)", command=self.open_viewer).pack(side="left")
+        self.cancel_btn = ttk.Button(btns, text="Cancelar", command=self.cancel, state="disabled")
+        self.cancel_btn.pack(side="left", padx=8)
+        ttk.Button(btns, text="Abrir carpeta del resultado", command=self.open_output).pack(side="left")
+        ttk.Button(btns, text="Ver el splat (SuperSplat)", command=self.open_viewer).pack(side="left", padx=8)
 
         ttk.Label(frm, textvariable=self.status).pack(anchor="w", pady=(4, 4))
 
-        self.log = ScrolledText(frm, height=22, wrap="word", font=("Consolas", 9))
+        self.preview_label = ttk.Label(
+            frm,
+            text="Acá se va a ver el splat mientras se arma (cada ~200 pasos).",
+            anchor="center",
+        )
+        self.preview_label.pack(fill="x", pady=(0, 8))
+
+        self.log = ScrolledText(frm, height=14, wrap="word", font=("Consolas", 9))
         self.log.pack(fill="both", expand=True)
-        self._log("El splat no se 'sube' a ningún programa especial.\n"
-                  "Entrada = el video. Salida = un archivo point_cloud.ply\n"
-                  "Cuando termine, Abrí SuperSplat en el navegador y arrastrá el .ply.\n")
+        self._log(
+            "Entrada = el video. Salida = point_cloud.ply\n"
+            "Durante el entrenamiento aparece una vista previa arriba.\n"
+            "Si se ve una mancha o está mal, Cancelar y cambiá captura/video.\n"
+        )
 
     def _log(self, text):
         self.log.insert("end", text)
         self.log.see("end")
+
+    def _preview_path(self):
+        video = self.video_path.get().strip().strip('"')
+        if not video:
+            return None
+        work = work_dir_for_video(video)
+        return os.path.join(work, "output", "preview.png")
+
+    def _poll_preview(self):
+        path = self._preview_path()
+        if path and os.path.isfile(path):
+            try:
+                mtime = os.path.getmtime(path)
+                if mtime != self.preview_mtime:
+                    self.preview_mtime = mtime
+                    img = tk.PhotoImage(file=path)
+                    # shrink if huge
+                    w = img.width()
+                    if w > 640:
+                        factor = max(2, int(round(w / 640.0)))
+                        img = img.subsample(factor, factor)
+                    self.preview_photo = img
+                    self.preview_label.config(image=self.preview_photo, text="")
+                    iter_file = os.path.join(os.path.dirname(path), "preview_iter.txt")
+                    extra = ""
+                    if os.path.isfile(iter_file):
+                        with open(iter_file, "r") as f:
+                            extra = "  (paso {})".format(f.read().strip())
+                    if self.proc and self.proc.poll() is None:
+                        self.status.set("Entrenando… vista previa actualizada." + extra)
+            except tk.TclError:
+                pass
+        self.after(1500, self._poll_preview)
 
     def pick_video(self):
         path = filedialog.askopenfilename(
@@ -80,10 +131,33 @@ class SplatApp(tk.Tk):
         if not os.path.isfile(RUN_SPLAT):
             messagebox.showerror("Repo", "No encuentro run_splat.py. Abrí EMPEZAR.bat desde la carpeta del repo.")
             return
+        self.cancelled = False
+        self.preview_mtime = 0
         self.go_btn.config(state="disabled")
-        self.status.set("Procesando… puede tardar 30–90 minutos. Dejá la notebook enchufada.")
+        self.cancel_btn.config(state="normal")
+        self.status.set("Procesando… notebook enchufada. La foto aparece cuando arranca el train.")
         self.output_dir = None
         threading.Thread(target=self._run, args=(video,), daemon=True).start()
+
+    def cancel(self):
+        if not self.proc or self.proc.poll() is not None:
+            return
+        self.cancelled = True
+        self.status.set("Cancelando…")
+        try:
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(self.proc.pid)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                self.proc.terminate()
+        except Exception:
+            try:
+                self.proc.kill()
+            except Exception:
+                pass
 
     def _run(self, video):
         env = os.environ.copy()
@@ -110,6 +184,11 @@ class SplatApp(tk.Tk):
 
     def _done(self, code, error, video):
         self.go_btn.config(state="normal")
+        self.cancel_btn.config(state="disabled")
+        if self.cancelled:
+            self.status.set("Cancelado. Podés elegir otro video o Generar de nuevo.")
+            self._log("\nCancelado por el usuario.\n")
+            return
         if error:
             self.status.set("Error al lanzar el proceso.")
             self._log("\n" + error + "\n")
@@ -124,7 +203,10 @@ class SplatApp(tk.Tk):
             self.output_dir = os.path.dirname(ply)
             self.status.set("Listo: " + ply)
             self._log("\nSPLAT LISTO:\n{}\n\nAbrí SuperSplat y arrastrá ese archivo.\n".format(ply))
-            messagebox.showinfo("Listo", "Splat generado:\n\n{}\n\nDespués: Ver el splat (SuperSplat) y arrastrá el .ply.".format(ply))
+            messagebox.showinfo(
+                "Listo",
+                "Splat generado:\n\n{}\n\nDespués: Ver el splat (SuperSplat) y arrastrá el .ply.".format(ply),
+            )
         else:
             self.status.set("Terminó, pero no encontré el .ply. Revisá el registro.")
 

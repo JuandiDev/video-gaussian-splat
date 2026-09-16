@@ -22,9 +22,10 @@ No uses la iGPU Radeon para Python. Si Windows pregunta, elegí **High performan
 No hace falta Cursor ni escribir comandos. Después de la instalación de una vez:
 
 1. Doble clic en **`EMPEZAR.bat`**
-2. **Elegir video…** (el `.mp4` que te mandaron, en Descargas, Escritorio, USB, da igual)
-3. **Generar splat** y esperar (30–90 min, notebook enchufada)
-4. **Ver el splat (SuperSplat)** se abre el navegador → **arrastrá** el archivo `point_cloud.ply`
+2. **Elegir video…**
+3. **Generar splat** — arriba se actualiza una foto cada ~200 pasos
+4. Si se ve mal: **Cancelar** y cambiá el video
+5. Si termina bien: **Ver el splat (SuperSplat)** y arrastrá `point_cloud.ply`
 
 El splat **no se mete en ningún programa**. El video es la **entrada**. El `.ply` es la **salida** que crea la app.
 

@@ -182,6 +182,7 @@ def train_flags_for_vram(vram_mb, gpu_name, iterations_override):
         "--test_iterations", "-1",
         "--iterations", str(iterations),
         "--save_iterations", str(iterations),
+        "--preview_interval", "200",
     ] + extra
     return flags, iterations
 
