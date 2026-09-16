@@ -17,6 +17,18 @@ Lenovo 82B1 · Windows 11 · Ryzen 7 4800H · 16 GB RAM · **NVIDIA GeForce RTX 
 
 No uses la iGPU Radeon para Python. Si Windows pregunta, elegí **High performance / NVIDIA**.
 
+## Actualizar el código (tu amigo)
+
+En Git Bash, **adentro** de la carpeta del repo:
+
+```bash
+cd ~/OneDrive/Documentos/GitHub/video-gaussian-splat
+git pull
+git log -1 --oneline
+```
+
+Tiene que aparecer un commit reciente. Si dice `Already up to date`, igual está bien si `git log -1` muestra el último cambio. Él **no sube** nada; solo baja con `git pull`.
+
 ## Uso diario (sin Cursor)
 
 No hace falta Cursor ni escribir comandos. Después de la instalación de una vez:
